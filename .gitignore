@@ -1,0 +1,28 @@
+# Environment variables (API keys - NEVER commit)
+.env
+
+# Python
+__pycache__/
+*.pyc
+venv/
+*.egg-info/
+
+# Databases & vector store (ephemeral on Streamlit Cloud, regenerated at runtime)
+research_history.db
+chroma_db/
+
+# Logs
+logs/
+
+# Generated reports
+reports/
+
+# OS files
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Evaluation results (optional - keep if you want to showcase, else ignore)
+# evaluation_results.json

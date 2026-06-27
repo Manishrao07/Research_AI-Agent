@@ -1,0 +1,58 @@
+{
+  "evaluated_at": "2026-06-27T17:17:04.212930",
+  "total_topics": 4,
+  "successful_topics": 4,
+  "aggregate_scores": {
+    "factual_specificity": 7.5,
+    "source_quality": 8.75,
+    "completeness": 8.5,
+    "clarity": 8.5
+  },
+  "overall_average": 8.31,
+  "per_topic_results": [
+    {
+      "topic": "Latest developments in renewable energy 2026",
+      "scores": {
+        "factual_specificity": 8,
+        "source_quality": 9,
+        "completeness": 8,
+        "clarity": 9
+      },
+      "comments": "The report provides concrete facts and credible sources, but could improve with more in-depth analysis of challenges and a more detailed future outlook, overall it is well-organized and readable.",
+      "report_length": 3819
+    },
+    {
+      "topic": "Impact of remote work on company productivity",
+      "scores": {
+        "factual_specificity": 6,
+        "source_quality": 8,
+        "completeness": 9,
+        "clarity": 8
+      },
+      "comments": "The report provides a thorough overview of the topic, covering multiple angles, but lacks concrete facts and numbers to support its claims, and some sources seem unrelated to the topic of remote work productivity.",
+      "report_length": 3531
+    },
+    {
+      "topic": "Current state of electric vehicle adoption in India",
+      "scores": {
+        "factual_specificity": 8,
+        "source_quality": 9,
+        "completeness": 8,
+        "clarity": 9
+      },
+      "comments": "The report provides concrete facts and credible sources, but could improve with more in-depth analysis and diverse perspectives, overall it is well-organized and readable.",
+      "report_length": 3818
+    },
+    {
+      "topic": "Effects of social media on mental health",
+      "scores": {
+        "factual_specificity": 8,
+        "source_quality": 9,
+        "completeness": 9,
+        "clarity": 8
+      },
+      "comments": "The report provides a thorough and well-organized overview of the topic, with credible sources and concrete facts, but could benefit from more specific data and statistics to support its claims.",
+      "report_length": 4464
+    }
+  ]
+}
