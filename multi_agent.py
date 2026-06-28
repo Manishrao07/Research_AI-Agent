@@ -28,12 +28,20 @@ from langgraph.prebuilt import ToolNode
 
 from tools import ALL_TOOLS
 
+import os
+
 PRIMARY_MODEL = "llama-3.3-70b-versatile"
 FALLBACK_MODEL = "llama-3.1-8b-instant"
 
+DEEP_API_KEY = os.getenv("GROQ_API_KEY_DEEP")
+
 
 def make_llm(model_name, temperature=0, with_tools=False):
-    llm = ChatGroq(model=model_name, temperature=temperature)
+    """
+    Deep mode ke liye alag Groq API key use karta hai (alag account = alag quota),
+    taaki Quick mode ka tokens quota deep research se affect na ho.
+    """
+    llm = ChatGroq(model=model_name, temperature=temperature, api_key=DEEP_API_KEY)
     if with_tools:
         llm = llm.bind_tools(ALL_TOOLS, parallel_tool_calls=False)
     return llm
@@ -44,7 +52,7 @@ def make_llm(model_name, temperature=0, with_tools=False):
 # taaki research zyada targeted aur thorough ho, ek hi generic query ki jagah.
 
 PLANNER_PROMPT = """You are a research planning agent. Your job is to break down a broad \
-research topic into 2-4 specific, focused sub-questions that together give comprehensive \
+research topic into 2-3 specific, focused sub-questions that together give comprehensive \
 coverage of the topic.
 
 Rules:
@@ -76,7 +84,7 @@ def planner_node(topic: str) -> list[str]:
         sub_questions = [q.strip() for q in sub_questions if q.strip()]
         if not sub_questions:
             raise ValueError("Empty sub_questions list")
-        return sub_questions[:4]  # max 4, cost control ke liye
+        return sub_questions[:3]  # max 3, cost control ke liye (kam tokens, fir bhi achi coverage)
     except Exception as e:
         print(f"⚠️ Planner failed ({e}), falling back to single direct question")
         return [topic]
@@ -86,6 +94,16 @@ def planner_node(topic: str) -> list[str]:
 # logic se research karna (tools call karna), aur saare findings collect karna.
 
 from agent import run_agent as research_single_question
+def research_single_question_deep(question, callback=None):
+    """Researcher ko bhi deep-mode key se chalata hai."""
+    from agent import run_agent_with_models
+    return run_agent_with_models(
+        question,
+        primary_model=PRIMARY_MODEL,
+        fallback_model=FALLBACK_MODEL,
+        api_key=DEEP_API_KEY,
+        callback=callback
+    )
 
 
 def researcher_node(sub_questions: list[str], callback=None) -> list[dict]:
@@ -98,7 +116,7 @@ def researcher_node(sub_questions: list[str], callback=None) -> list[dict]:
         if callback:
             callback(f"RESEARCH_PHASE|Sub-question {i}/{len(sub_questions)}: {question}")
 
-        result = research_single_question(question, callback=callback)
+        result = research_single_question_deep(question, callback=callback)
         findings.append({
             "question": question,
             "report": result["report"],

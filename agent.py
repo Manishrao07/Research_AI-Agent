@@ -15,18 +15,27 @@ import json
 import time
 
 # ─── LLM Setup ───────────────────────────────────────────
+import os
+
 PRIMARY_MODEL = "llama-3.3-70b-versatile"
 FALLBACK_MODEL = "llama-3.1-8b-instant"
 
-def make_llm(model_name):
+QUICK_API_KEY = os.getenv("GROQ_API_KEY")
+DEEP_API_KEY = os.getenv("GROQ_API_KEY_DEEP")
+
+def make_llm(model_name, api_key=None):
+    key = api_key or QUICK_API_KEY
     return ChatGroq(
         model=model_name,
-        temperature=0
+        temperature=0,
+        api_key=key
     ).bind_tools(ALL_TOOLS, parallel_tool_calls=False)
 
 llm = make_llm(PRIMARY_MODEL)
 fallback_llm = make_llm(FALLBACK_MODEL)
 
+llm_deep = make_llm(PRIMARY_MODEL, api_key=DEEP_API_KEY)
+fallback_llm_deep = make_llm(FALLBACK_MODEL, api_key=DEEP_API_KEY)
 SYSTEM_PROMPT = """You are ResearchAI — an expert research assistant with access to tools.
 
 You MUST use your tools to research before writing any report. Never make up information.
@@ -34,7 +43,7 @@ You MUST use your tools to research before writing any report. Never make up inf
 PROCESS (follow strictly):
 1. Call search_web with the topic
 2. Call search_wikipedia with the topic  
-3. ONLY if the topic is specifically about science, technology, AI/ML, physics, mathematics, medicine, or engineering research, also call search_arxiv for academic papers. Do NOT call search_arxiv for topics about sports, entertainment, politics, business, current events, or general news — arxiv only contains academic preprints, not general information.
+3. search_arxiv is OPTIONAL and should be skipped for almost all topics. ONLY call search_arxiv if the topic is unambiguously a hard science/engineering research subject — examples that QUALIFY: "transformer neural network architecture", "CRISPR gene editing techniques", "quantum computing algorithms". Examples that DO NOT qualify and must NEVER call search_arxiv: sports (cricket, football, IPL, any match or tournament), entertainment, celebrities, politics, business news, finance, current events, general news, history, geography. If you are unsure whether a topic qualifies, DO NOT call search_arxiv — skip it and rely on search_web and search_wikipedia only.
 4. If numbers involved, call calculate
 5. Write the final report using ONLY information from tool results
 
@@ -177,7 +186,116 @@ def calculate_confidence(steps, report):
         "tools_used": len(unique_tools),
         "sources_found": source_count
     }
+def run_agent_with_models(topic: str, primary_model: str, fallback_model: str, api_key: str, callback=None):
+    """
+    run_agent jaisa hi hai, lekin custom model names aur API key ke saath chalata hai.
+    Multi-agent pipeline (Deep mode) isko use karta hai, alag Groq account se.
+    """
+    custom_primary = ChatGroq(model=primary_model, temperature=0, api_key=api_key).bind_tools(
+        ALL_TOOLS, parallel_tool_calls=False
+    )
+    custom_fallback = ChatGroq(model=fallback_model, temperature=0, api_key=api_key).bind_tools(
+        ALL_TOOLS, parallel_tool_calls=False
+    )
 
+    def custom_agent_node(state: AgentState):
+        messages = state["messages"]
+        if not any(isinstance(m, SystemMessage) for m in messages):
+            messages = [SystemMessage(content=SYSTEM_PROMPT)] + list(messages)
+
+        max_retries = 1
+        last_error = None
+
+        for attempt in range(max_retries):
+            try:
+                response = custom_primary.invoke(messages)
+                return {"messages": [response]}
+            except Exception as e:
+                last_error = e
+                error_str = str(e)
+                if "tool_use_failed" in error_str or "tool call validation failed" in error_str:
+                    time.sleep(1)
+                    continue
+                elif "rate_limit" in error_str.lower() or "429" in error_str:
+                    break
+                else:
+                    raise
+
+        for attempt in range(max_retries):
+            try:
+                response = custom_fallback.invoke(messages)
+                return {"messages": [response]}
+            except Exception as e:
+                last_error = e
+                error_str = str(e)
+                if "tool_use_failed" in error_str or "tool call validation failed" in error_str:
+                    time.sleep(1)
+                    continue
+                elif "rate_limit" in error_str.lower() or "429" in error_str:
+                    break
+                else:
+                    raise
+
+        raise RuntimeError(f"Agent failed on both models (deep mode): {last_error}")
+
+    custom_tool_node = ToolNode(ALL_TOOLS)
+    custom_graph = StateGraph(AgentState)
+    custom_graph.add_node("agent", custom_agent_node)
+    custom_graph.add_node("tools", custom_tool_node)
+    custom_graph.set_entry_point("agent")
+    custom_graph.add_conditional_edges("agent", should_continue, {"tools": "tools", END: END})
+    custom_graph.add_edge("tools", "agent")
+    custom_agent = custom_graph.compile()
+
+    messages = [HumanMessage(content=f"Research this topic and write a detailed report: {topic}")]
+    steps = []
+    final_report = ""
+    tool_call_start_times = {}
+
+    for chunk in custom_agent.stream({"messages": messages}, stream_mode="values"):
+        last_msg = chunk["messages"][-1]
+
+        if isinstance(last_msg, AIMessage):
+            if isinstance(last_msg.content, str) and last_msg.content.strip():
+                if len(last_msg.content) < 300:
+                    step = f"THINKING|{last_msg.content.strip()}"
+                    steps.append(step)
+                    if callback:
+                        callback(step)
+
+            if last_msg.tool_calls:
+                for tc in last_msg.tool_calls:
+                    tool_name = tc["name"]
+                    tool_args = tc.get("args", {})
+                    query_preview = list(tool_args.values())[0] if tool_args else ""
+                    step = f"TOOL_CALL|{tool_name}|{query_preview}"
+                    steps.append(step)
+                    if callback:
+                        callback(step)
+                    tool_call_start_times[tool_name] = time.time()
+
+        if isinstance(last_msg, ToolMessage):
+            step = f"TOOL_RESULT|{last_msg.name}"
+            steps.append(step)
+            if callback:
+                callback(step)
+            tool_name = last_msg.name
+            start_time = tool_call_start_times.get(tool_name, time.time())
+            duration = round(time.time() - start_time, 3)
+            tool_success = not (isinstance(last_msg.content, str) and "error" in last_msg.content.lower()[:50])
+            log_event("tool_call", tool=tool_name, duration_sec=duration, success=tool_success)
+
+        if isinstance(last_msg, AIMessage) and not last_msg.tool_calls:
+            if isinstance(last_msg.content, str) and len(last_msg.content) > 200:
+                final_report = last_msg.content
+
+    confidence = calculate_confidence(steps, final_report)
+
+    return {
+        "steps": steps,
+        "report": final_report,
+        "confidence": confidence
+    }
 # ─── Run Function ────────────────────────────────────────
 def run_agent(topic: str, callback=None):
     messages = [HumanMessage(content=f"Research this topic and write a detailed report: {topic}")]
