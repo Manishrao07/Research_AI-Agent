@@ -6,9 +6,9 @@ import re
 @tool
 def search_arxiv(query: str) -> str:
     """
-    Arxiv.org se academic research papers search karne ke liye.
-    Scientific, technical, AI/ML, physics, math jaise topics ke liye use karo
-    jahan peer-reviewed ya preprint research papers relevant hon.
+    Search Arxiv.org for academic and scientific research papers.
+    ONLY use this tool for highly technical, scientific, AI/ML, physics, or math queries where formal preprints/papers are relevant.
+    NEVER use this tool for general knowledge, sports, news, pop culture, entertainment, celebrities, business news, or current events.
     """
     try:
         url = "http://export.arxiv.org/api/query"
