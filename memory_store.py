@@ -9,10 +9,11 @@ Har session ko ek chhota readable ID milta hai: rai-1, rai-2, rai-3...
 
 import sqlite3
 import json
+import os
 from datetime import datetime
 from contextlib import contextmanager
 
-DB_PATH = "research_history.db"
+DB_PATH = os.environ.get("SQLITE_DB_PATH", "research_history.db")
 
 
 @contextmanager

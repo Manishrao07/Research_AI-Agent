@@ -1,0 +1,50 @@
+services:
+  # 1. Streamlit User Interface
+  - type: web
+    name: research-ai-agent-ui
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: streamlit run app.py --server.port $PORT --server.address 0.0.0.0
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      # Default to local directories (Free Tier compatible)
+      # Change to /data/research_history.db and /data/chroma_db if using a persistent disk
+      - key: SQLITE_DB_PATH
+        value: research_history.db
+      - key: CHROMA_DB_PATH
+        value: ./chroma_db
+      # Credentials (must be filled manually in Render Dashboard)
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_API_KEY_DEEP
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+
+    # NOTE: To persist search history, uncomment the disk section below.
+    # This requires upgrading from the Render Free plan to a paid (Starter) instance.
+    # disk:
+    #   name: agent-db-storage
+    #   mountPath: /data
+    #   sizeGB: 1
+
+  # 2. FastAPI API Service (Optional)
+  - type: web
+    name: research-ai-agent-api
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn api:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: SQLITE_DB_PATH
+        value: research_history.db
+      - key: CHROMA_DB_PATH
+        value: ./chroma_db
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_API_KEY_DEEP
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false

@@ -12,8 +12,9 @@ koi extra API cost nahi).
 
 import chromadb
 from chromadb.utils import embedding_functions
+import os
 
-CHROMA_DB_PATH = "./chroma_db"
+CHROMA_DB_PATH = os.environ.get("CHROMA_DB_PATH", "./chroma_db")
 COLLECTION_NAME = "research_reports"
 
 # Local, free embedding model - chhota aur fast hai (all-MiniLM-L6-v2)
