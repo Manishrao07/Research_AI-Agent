@@ -22,6 +22,12 @@ services:
         sync: false
       - key: TAVILY_API_KEY
         sync: false
+      - key: LANGSMITH_TRACING
+        value: "true"
+      - key: LANGSMITH_PROJECT
+        value: "researchai-agent"
+      - key: LANGSMITH_API_KEY
+        sync: false
 
     # NOTE: To persist search history, uncomment the disk section below.
     # This requires upgrading from the Render Free plan to a paid (Starter) instance.
@@ -49,4 +55,10 @@ services:
       - key: GROQ_API_KEY_DEEP
         sync: false
       - key: TAVILY_API_KEY
+        sync: false
+      - key: LANGSMITH_TRACING
+        value: "true"
+      - key: LANGSMITH_PROJECT
+        value: "researchai-agent"
+      - key: LANGSMITH_API_KEY
         sync: false
