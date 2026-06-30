@@ -3,6 +3,7 @@ services:
   - type: web
     name: research-ai-agent-ui
     env: python
+    plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: streamlit run app.py --server.port $PORT --server.address 0.0.0.0
     envVars:
@@ -33,6 +34,7 @@ services:
   - type: web
     name: research-ai-agent-api
     env: python
+    plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn api:app --host 0.0.0.0 --port $PORT
     envVars:
